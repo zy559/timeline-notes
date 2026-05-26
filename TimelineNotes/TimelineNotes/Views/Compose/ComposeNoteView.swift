@@ -23,16 +23,7 @@ struct ComposeNoteView: View {
     }
 
     @Query(sort: \Timeline.sortOrder) private var timelines: [Timeline]
-
-    init(timeline: Timeline? = nil, editingNote: Note? = nil) {
-        self.timeline = timeline
-        self.editingNote = editingNote
-        if let note = editingNote {
-            _content = State(initialValue: note.content)
-            _selectedTimeline = State(initialValue: note.timeline)
-            _manualTags = State(initialValue: note.tags?.map { $0.name } ?? [])
-        }
-    }
+    @State private var didLoadInitialValues = false
 
     var body: some View {
         NavigationStack {
@@ -139,6 +130,15 @@ struct ComposeNoteView: View {
             }
             .onChange(of: selectedPhotos) { _, _ in
                 Task { await loadSelectedMedia() }
+            }
+            .onAppear {
+                guard !didLoadInitialValues else { return }
+                didLoadInitialValues = true
+                if let note = editingNote {
+                    content = note.content
+                    selectedTimeline = note.timeline
+                    manualTags = note.tags?.map { $0.name } ?? []
+                }
             }
         }
     }
