@@ -19,7 +19,7 @@ extension DateFormatter {
     static func displayString(from date: Date) -> String {
         let now = Date()
         let interval = now.timeIntervalSince(date)
-        if interval < 86400 {
+        if interval >= 0 && interval < 86400 {
             return relativeDate.localizedString(for: date, relativeTo: now)
         }
         return noteDisplay.string(from: date)

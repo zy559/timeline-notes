@@ -3,6 +3,7 @@ import Foundation
 enum MediaGridLayoutHelper {
     static func columns(for count: Int) -> Int {
         switch count {
+        case ..<1: return 0
         case 1: return 1
         case 2: return 2
         default: return 3

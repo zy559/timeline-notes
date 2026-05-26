@@ -11,7 +11,7 @@ enum HashtagParser {
         let matches = hashtagRegex.matches(in: text, options: [], range: NSRange(location: 0, length: nsText.length))
         return matches.map { match in
             let tag = nsText.substring(with: match.range(at: 1))
-            return tag.lowercased().trimmingCharacters(in: .whitespaces)
+            return tag.lowercased()
         }.filter { !$0.isEmpty }
     }
 }
