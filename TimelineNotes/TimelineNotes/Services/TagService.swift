@@ -41,9 +41,9 @@ final class TagService {
     }
 
     func popularTags(limit: Int = 20) throws -> [Tag] {
-        var descriptor = FetchDescriptor<Tag>(sortBy: [SortDescriptor(\.name)])
-        descriptor.fetchLimit = limit
-        return try modelContext.fetch(descriptor)
+        let all = try fetchAllTags()
+        let sorted = all.sorted { ($0.notes?.count ?? 0) > ($1.notes?.count ?? 0) }
+        return Array(sorted.prefix(limit))
     }
 
     private func fetchTag(named name: String) throws -> Tag? {
