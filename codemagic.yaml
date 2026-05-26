@@ -1,0 +1,32 @@
+workflows:
+  build-ios:
+    name: Build iOS App
+    instance_type: mac_mini_m2
+    max_build_duration: 30
+    environment:
+      xcode: latest
+      groups:
+        - default
+    scripts:
+      - name: Install XcodeGen
+        script: brew install xcodegen
+      - name: Generate Xcode project
+        script: xcodegen generate --spec project.yml
+      - name: Build unsigned app
+        script: |
+          xcodebuild archive \
+            -project TimelineNotes.xcodeproj \
+            -scheme TimelineNotes \
+            -archivePath /tmp/TimelineNotes.xcarchive \
+            -destination "generic/platform=iOS" \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+      - name: Package .ipa for sideloading
+        script: |
+          mkdir -p /tmp/Payload
+          cp -R /tmp/TimelineNotes.xcarchive/Products/Applications/TimelineNotes.app /tmp/Payload/
+          cd /tmp
+          zip -r TimelineNotes.ipa Payload/
+    artifacts:
+      - /tmp/TimelineNotes.ipa
