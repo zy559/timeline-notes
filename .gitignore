@@ -1,0 +1,29 @@
+# Xcode
+*.xcworkspace
+*.xcuserdata
+*.xcuserstate
+DerivedData/
+Build/
+
+# XcodeGen
+*.xcodeproj
+!*.xcodeproj/xcshareddata/
+
+# Archives
+build/
+*.xcarchive
+*.ipa
+
+# Swift
+.build/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Superpowers
+.superpowers/
