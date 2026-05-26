@@ -63,48 +63,21 @@ final class NoteService {
         page: Int = 0,
         pageSize: Int = 20
     ) throws -> [Note] {
-        var allNotes: [Note]
+        var descriptor = FetchDescriptor<Note>(
+            sortBy: [SortDescriptor(\.isPinned, order: .reverse), SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        if let start = startDate, let end = endDate {
+            descriptor.predicate = #Predicate { $0.createdAt >= start && $0.createdAt <= end }
+        } else if let start = startDate {
+            descriptor.predicate = #Predicate { $0.createdAt >= start }
+        } else if let end = endDate {
+            descriptor.predicate = #Predicate { $0.createdAt <= end }
+        }
+        var allNotes = try modelContext.fetch(descriptor)
 
         if let timeline = timeline {
             let tid = timeline.id
-            let predicate: Predicate<Note>
-            if let start = startDate, let end = endDate {
-                predicate = #Predicate { $0.timeline?.id == tid && $0.createdAt >= start && $0.createdAt <= end }
-            } else if let start = startDate {
-                predicate = #Predicate { $0.timeline?.id == tid && $0.createdAt >= start }
-            } else if let end = endDate {
-                predicate = #Predicate { $0.timeline?.id == tid && $0.createdAt <= end }
-            } else {
-                predicate = #Predicate { $0.timeline?.id == tid }
-            }
-            let descriptor = FetchDescriptor<Note>(
-                predicate: predicate,
-                sortBy: [SortDescriptor(\.isPinned, order: .reverse), SortDescriptor(\.createdAt, order: .reverse)]
-            )
-            allNotes = try modelContext.fetch(descriptor)
-        } else {
-            let descriptor: FetchDescriptor<Note>
-            if let start = startDate, let end = endDate {
-                descriptor = FetchDescriptor<Note>(
-                    predicate: #Predicate { $0.createdAt >= start && $0.createdAt <= end },
-                    sortBy: [SortDescriptor(\.isPinned, order: .reverse), SortDescriptor(\.createdAt, order: .reverse)]
-                )
-            } else if let start = startDate {
-                descriptor = FetchDescriptor<Note>(
-                    predicate: #Predicate { $0.createdAt >= start },
-                    sortBy: [SortDescriptor(\.isPinned, order: .reverse), SortDescriptor(\.createdAt, order: .reverse)]
-                )
-            } else if let end = endDate {
-                descriptor = FetchDescriptor<Note>(
-                    predicate: #Predicate { $0.createdAt <= end },
-                    sortBy: [SortDescriptor(\.isPinned, order: .reverse), SortDescriptor(\.createdAt, order: .reverse)]
-                )
-            } else {
-                descriptor = FetchDescriptor<Note>(
-                    sortBy: [SortDescriptor(\.isPinned, order: .reverse), SortDescriptor(\.createdAt, order: .reverse)]
-                )
-            }
-            allNotes = try modelContext.fetch(descriptor)
+            allNotes = allNotes.filter { $0.timeline?.id == tid }
         }
 
         if !searchText.isEmpty {

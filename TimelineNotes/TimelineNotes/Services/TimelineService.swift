@@ -47,7 +47,11 @@ final class TimelineService {
     }
 
     private func fetchNotesForTimeline(_ timeline: Timeline) throws -> [Note] {
-        let descriptor = FetchDescriptor<Note>(predicate: #Predicate { $0.timeline?.id == timeline.id })
-        return try modelContext.fetch(descriptor)
+        let tid = timeline.id
+        let descriptor = FetchDescriptor<Note>(
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        let allNotes = try modelContext.fetch(descriptor)
+        return allNotes.filter { $0.timeline?.id == tid }
     }
 }
