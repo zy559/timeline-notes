@@ -20,11 +20,11 @@ final class MediaService {
         let scale = min(maxDimension / max(size.width, size.height), 1.0)
         if scale >= 1.0 { return data }
         let newSize = CGSize(width: size.width * scale, height: size.height * scale)
-        UIGraphicsBeginImageContextWithOptions(newSize, true, 1.0)
-        image.draw(in: CGRect(origin: .zero, size: newSize))
-        let thumbnail = UIGraphicsGetImageFromCurrentImageContext()
-        UIGraphicsEndImageContext()
-        return thumbnail?.jpegData(compressionQuality: 0.8)
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+        let thumbnail = renderer.image { _ in
+            image.draw(in: CGRect(origin: .zero, size: newSize))
+        }
+        return thumbnail.jpegData(compressionQuality: 0.8)
     }
 
     func generateVideoThumbnail(from data: Data, maxDimension: CGFloat = 400) -> Data? {
@@ -59,7 +59,9 @@ final class MediaService {
     }
 
     private var mediaDirectory: URL {
-        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        guard let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return URL.temporaryDirectory.appendingPathComponent("Media")
+        }
         let mediaDir = documents.appendingPathComponent("Media")
         if !FileManager.default.fileExists(atPath: mediaDir.path()) {
             try? FileManager.default.createDirectory(at: mediaDir, withIntermediateDirectories: true)

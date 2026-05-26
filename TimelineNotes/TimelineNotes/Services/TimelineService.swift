@@ -1,6 +1,7 @@
 import SwiftData
 import Foundation
 
+@MainActor
 @Observable
 final class TimelineService {
     private let modelContext: ModelContext
