@@ -48,7 +48,10 @@ final class TagService {
     }
 
     private func fetchTag(named name: String) throws -> Tag? {
-        let descriptor = FetchDescriptor<Tag>(predicate: #Predicate { $0.name == name })
-        return try modelContext.fetch(descriptor).first
+        let descriptor = FetchDescriptor<Tag>(
+            sortBy: [SortDescriptor<Tag>(\.name)]
+        )
+        let all: [Tag] = try modelContext.fetch(descriptor)
+        return all.first { $0.name == name }
     }
 }

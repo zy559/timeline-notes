@@ -63,38 +63,43 @@ final class NoteService {
         page: Int = 0,
         pageSize: Int = 20
     ) throws -> [Note] {
-        var descriptor = FetchDescriptor<Note>(
-            sortBy: [SortDescriptor(\.isPinned, order: .reverse), SortDescriptor(\.createdAt, order: .reverse)]
+        let descriptor = FetchDescriptor<Note>(
+            sortBy: [SortDescriptor<Note>(\.createdAt, order: .reverse)]
         )
-        if let start = startDate, let end = endDate {
-            descriptor.predicate = #Predicate { $0.createdAt >= start && $0.createdAt <= end }
-        } else if let start = startDate {
-            descriptor.predicate = #Predicate { $0.createdAt >= start }
-        } else if let end = endDate {
-            descriptor.predicate = #Predicate { $0.createdAt <= end }
+        let fetched: [Note] = try modelContext.fetch(descriptor)
+
+        var results = fetched.sorted { a, b in
+            if a.isPinned != b.isPinned { return a.isPinned }
+            return a.createdAt > b.createdAt
         }
-        var allNotes = try modelContext.fetch(descriptor)
 
         if let timeline = timeline {
             let tid = timeline.id
-            allNotes = allNotes.filter { $0.timeline?.id == tid }
+            results = results.filter { $0.timeline?.id == tid }
         }
 
         if !searchText.isEmpty {
-            allNotes = allNotes.filter { $0.content.localizedCaseInsensitiveContains(searchText) }
+            results = results.filter { $0.content.localizedCaseInsensitiveContains(searchText) }
         }
 
         if !tags.isEmpty {
-            allNotes = allNotes.filter { note in
-                let noteTags = Set((note.tags ?? []).map { $0.id })
-                let filterTagIds = Set(tags.map { $0.id })
-                return !noteTags.isDisjoint(with: filterTagIds)
+            let filterIds = Set(tags.map { $0.id })
+            results = results.filter { note in
+                let noteIds = Set((note.tags ?? []).map { $0.id })
+                return !noteIds.isDisjoint(with: filterIds)
             }
         }
 
+        if let start = startDate {
+            results = results.filter { $0.createdAt >= start }
+        }
+        if let end = endDate {
+            results = results.filter { $0.createdAt <= end }
+        }
+
         let startIndex = page * pageSize
-        guard startIndex < allNotes.count else { return [] }
-        let endIndex = min(startIndex + pageSize, allNotes.count)
-        return Array(allNotes[startIndex..<endIndex])
+        guard startIndex < results.count else { return [] }
+        let endIndex = min(startIndex + pageSize, results.count)
+        return Array(results[startIndex..<endIndex])
     }
 }
