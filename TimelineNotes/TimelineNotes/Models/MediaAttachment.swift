@@ -8,7 +8,7 @@ enum MediaType: String, Codable {
 
 @Model
 final class MediaAttachment {
-    var id: UUID
+    @Attribute(.unique) var id: UUID
     var type: MediaType.RawValue
     var fileName: String
     var thumbnailFileName: String?

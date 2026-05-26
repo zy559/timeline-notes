@@ -9,7 +9,7 @@ final class Note {
     var editedAt: Date?
     var isPinned: Bool
     var timeline: Timeline?
-    @Relationship(deleteRule: .cascade) var tags: [Tag]?
+    @Relationship(deleteRule: .nullify) var tags: [Tag]?
     @Relationship(deleteRule: .cascade) var media: [MediaAttachment]?
 
     init(
