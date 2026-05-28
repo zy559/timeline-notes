@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="时间线笔记">
+<meta name="theme-color" content="#007AFF">
+<link rel="manifest" href="manifest.json">
+<title>时间线笔记</title>
+<style>
+:root{--bg:#f2f2f7;--card:#fff;--txt:#000;--sub:#8e8e93;--accent:#007AFF;--sep:rgba(60,60,67,0.1);--red:#FF3B30;--orange:#FF9500;--green:#34C759;--purple:#AF52DE}
+@media(prefers-color-scheme:dark){:root{--bg:#000;--card:#1c1c1e;--txt:#fff;--sep:rgba(84,84,88,0.65)}}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font:-apple-system-body,sans-serif;background:var(--bg);color:var(--txt);overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
+.tabs{display:flex;border-bottom:1px solid var(--sep);background:var(--card);position:sticky;top:0;z-index:10;backdrop-filter:blur(10px)}
+.tab{flex:1;text-align:center;padding:12px 0;font-size:14px;font-weight:500;color:var(--sub);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.page{display:none;padding-bottom:80px}
+.page.visible{display:block}
+/* Timeline Picker */
+.picker-wrap{overflow-x:auto;scrollbar-width:none;padding:8px 16px;background:var(--bg);border-bottom:1px solid var(--sep)}
+.picker-wrap::-webkit-scrollbar{display:none}
+.picker-row{display:flex;gap:8px;align-items:center;white-space:nowrap}
+.chip{padding:6px 14px;border-radius:99px;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all .2s;flex-shrink:0}
+.chip.on{background:var(--accent);color:#fff}
+.chip.off{background:var(--card);color:var(--txt);border:1px solid var(--sep)}
+.chip.add{background:transparent;color:var(--sub);border:1px dashed var(--sep)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:100;display:flex;align-items:flex-end;justify-content:center}
+.modal-overlay.hidden{display:none}
+.modal-sheet{background:var(--card);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:600px;max-height:80vh;overflow-y:auto}
+.modal-title{font-size:18px;font-weight:700;text-align:center;margin-bottom:16px}
+.modal-input{width:100%;padding:12px;border:1px solid var(--sep);border-radius:12px;font-size:16px;background:var(--bg);color:var(--txt);margin-bottom:10px}
+.modal-btn{display:block;width:100%;padding:14px;border:none;border-radius:12px;font-size:16px;font-weight:600;cursor:pointer;margin-bottom:8px}
+.modal-btn.primary{background:var(--accent);color:#fff}
+.modal-btn.danger{background:var(--red);color:#fff}
+.modal-btn.secondary{background:var(--bg);color:var(--txt)}
+/* Note Card */
+.card{padding:14px 16px;background:var(--card);border-bottom:1px solid var(--sep);cursor:pointer}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.card-time{font-size:12px;color:var(--sub)}
+.card-body{font-size:15px;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.card-body .htag{color:var(--accent);font-weight:500}
+.card-media{display:grid;gap:3px;margin-top:8px;border-radius:8px;overflow:hidden}
+.card-media.cols1{grid-template-columns:1fr}
+.card-media.cols2{grid-template-columns:1fr 1fr}
+.card-media.cols3{grid-template-columns:1fr 1fr 1fr}
+.card-media img,.card-media video{width:100%;aspect-ratio:1;object-fit:cover;display:block;cursor:pointer}
+.card-media .vid-thumb{position:relative;display:flex;align-items:center;justify-content:center;background:#000}
+.card-media .vid-thumb svg{position:absolute;width:32px;height:32px;fill:#fff;opacity:0.9;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.5))}
+.card-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.card-tag{font-size:11px;color:var(--accent);background:rgba(0,122,255,0.1);padding:2px 8px;border-radius:99px}
+/* Compose / Detail */
+.content-area{min-height:200px;padding:12px;border:1px solid var(--sep);border-radius:12px;font-size:16px;background:var(--bg);color:var(--txt);line-height:1.6;outline:none}
+.content-area:empty:before{content:attr(placeholder);color:var(--sub)}
+.media-picker-btn{display:flex;align-items:center;gap:8px;padding:12px 16px;border:1px dashed var(--sep);border-radius:12px;font-size:15px;color:var(--accent);cursor:pointer;margin:10px 0}
+.media-preview{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+.media-preview-item{position:relative;width:72px;height:72px;border-radius:8px;overflow:hidden;flex-shrink:0}
+.media-preview-item img,.media-preview-item video{width:100%;height:100%;object-fit:cover}
+.media-preview-item .del{position:absolute;top:2px;right:2px;width:20px;height:20px;background:rgba(0,0,0,0.7);color:#fff;border-radius:50%;font-size:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none}
+.tag-input-row{display:flex;gap:8px;margin:8px 0}
+.tag-input-row input{flex:1;padding:10px;border:1px solid var(--sep);border-radius:10px;font-size:14px;background:var(--bg);color:var(--txt)}
+.tag-input-row button{padding:10px 16px;border:none;border-radius:10px;background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer}
+/* FAB */
+.fab{position:fixed;bottom:90px;right:20px;width:56px;height:56px;border-radius:50%;background:var(--accent);color:#fff;font-size:28px;border:none;cursor:pointer;box-shadow:0 4px 16px rgba(0,122,255,0.4);z-index:20;display:flex;align-items:center;justify-content:center}
+/* Fullscreen media */
+.fs-overlay{position:fixed;inset:0;background:#000;z-index:200;display:flex;align-items:center;justify-content:center}
+.fs-overlay.hidden{display:none}
+.fs-overlay img{max-width:100%;max-height:100%;object-fit:contain}
+.fs-overlay video{max-width:100%;max-height:100%}
+.fs-close{position:absolute;top:16px;right:16px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,0.2);color:#fff;border:none;font-size:18px;cursor:pointer}
+.fs-save{position:absolute;bottom:40px;left:50%;transform:translateX(-50%);padding:10px 24px;border-radius:99px;background:rgba(255,255,255,0.2);color:#fff;border:none;font-size:15px;cursor:pointer}
+/* Search */
+.search-bar{display:flex;align-items:center;gap:8px;margin:10px 16px;padding:8px 14px;background:var(--card);border-radius:12px;border:1px solid var(--sep)}
+.search-bar input{flex:1;border:none;outline:none;font-size:15px;background:transparent;color:var(--txt)}
+.tag-cloud{display:flex;flex-wrap:wrap;gap:6px;padding:8px 16px}
+.tag-cloud .chip{cursor:pointer}
+/* Menu */
+.menu{position:fixed;inset:0;z-index:150;display:flex;align-items:flex-end;justify-content:center}
+.menu.hidden{display:none}
+.menu-content{background:var(--card);border-radius:20px 20px 0 0;padding:8px;width:100%;max-width:600px}
+.menu-item{padding:14px;text-align:center;font-size:16px;cursor:pointer;border-radius:12px}
+.menu-item.danger{color:var(--red);font-weight:600}
+.menu-cancel{padding:14px;text-align:center;font-size:16px;font-weight:600;cursor:pointer;border-radius:12px;border-top:1px solid var(--sep);margin-top:4px}
+/* Settings */
+.sec-title{font-size:13px;font-weight:600;color:var(--sub);text-transform:uppercase;padding:12px 16px 4px}
+.set-item{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--card);border-bottom:1px solid var(--sep);cursor:pointer}
+.set-item .arrow{color:var(--sub);font-size:16px}
+.set-value{color:var(--sub);font-size:14px}
+/* Swipe */
+.card{position:relative;overflow:hidden}
+.card-actions{position:absolute;right:0;top:0;bottom:0;display:flex;z-index:5;transform:translateX(100%);transition:transform .2s}
+.card-actions.show{transform:translateX(0)}
+.card-actions button{width:64px;border:none;color:#fff;font-size:13px;font-weight:600;cursor:pointer}
+.card-actions .edit{background:var(--accent)}
+.card-actions .delete{background:var(--red)}
+/* Empty state */
+.empty{text-align:center;padding:60px 20px;color:var(--sub)}
+.empty-icon{font-size:48px;margin-bottom:12px}
+.empty-title{font-size:18px;font-weight:600;margin-bottom:4px}
+.empty-sub{font-size:14px}
+.toast{position:fixed;top:60px;left:50%;transform:translateX(-50%);background:var(--accent);color:#fff;padding:10px 24px;border-radius:99px;font-size:14px;z-index:300;opacity:0;transition:opacity .3s;pointer-events:none}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<!-- Tab Bar -->
+<div class="tabs">
+<div class="tab active" data-page="timeline">时间线</div>
+<div class="tab" data-page="search">搜索</div>
+<div class="tab" data-page="settings">设置</div>
+</div>
+
+<!-- Timeline Page -->
+<div class="page visible" id="page-timeline">
+<div class="picker-wrap"><div class="picker-row" id="picker-row"></div></div>
+<div id="feed"></div>
+</div>
+
+<!-- Search Page -->
+<div class="page" id="page-search">
+<div class="search-bar"><span>&#128269;</span><input type="text" id="search-input" placeholder="搜索笔记..." oninput="doSearch()"></div>
+<div class="tag-cloud" id="search-tags"></div>
+<div id="search-results"></div>
+</div>
+
+<!-- Settings Page -->
+<div class="page" id="page-settings">
+<div class="sec-title">时间线管理</div>
+<div id="timeline-list"></div>
+<div class="sec-title">数据</div>
+<div class="set-item"><span>导出数据</span><span class="arrow" onclick="exportData()">&#8611;</span></div>
+<div class="set-item"><span id="note-count">共 0 条笔记</span></div>
+<div class="sec-title">关于</div>
+<div class="set-item"><span>版本</span><span class="set-value">1.0.0</span></div>
+</div>
+
+<!-- FAB -->
+<div class="fab" id="fab" onclick="openCompose()">+</div>
+
+<!-- Compose Modal -->
+<div class="modal-overlay hidden" id="compose-modal">
+<div class="modal-sheet">
+<div class="modal-title" id="compose-title">发布笔记</div>
+<div contenteditable="true" class="content-area" id="compose-content" placeholder="输入笔记内容..."></div>
+<div class="media-picker-btn" onclick="document.getElementById('media-input').click()">&#128247; 添加图片/视频</div>
+<input type="file" id="media-input" multiple accept="image/*,video/*" style="display:none" onchange="handleMediaSelect(event)">
+<div class="media-preview" id="compose-media-preview"></div>
+<div class="tag-input-row">
+<input type="text" id="tag-input" placeholder="添加标签" onkeydown="if(event.key==='Enter')addTag()">
+<button onclick="addTag()">添加</button>
+</div>
+<div id="compose-tags" class="card-tags"></div>
+<label style="display:block;margin:10px 0;font-size:14px;color:var(--sub)">时间线</label>
+<select id="compose-timeline" style="width:100%;padding:10px;border:1px solid var(--sep);border-radius:10px;font-size:15px;background:var(--bg);color:var(--txt)"></select>
+<button class="modal-btn primary" onclick="saveNote()">发布</button>
+<button class="modal-btn secondary" onclick="closeCompose()">取消</button>
+</div>
+</div>
+
+<!-- Fullscreen Media -->
+<div class="fs-overlay hidden" id="fs-overlay">
+<button class="fs-close" onclick="closeFS()">&#10005;</button>
+<div id="fs-content"></div>
+<button class="fs-save" id="fs-save" onclick="saveMedia()">保存到相册</button>
+</div>
+
+<!-- Action Menu -->
+<div class="menu hidden" id="action-menu">
+<div class="menu-content">
+<div class="menu-item" onclick="pinNote()" id="menu-pin">置顶</div>
+<div class="menu-item" onclick="editNote()">编辑</div>
+<div class="menu-item danger" onclick="deleteNote()">删除</div>
+<div class="menu-cancel" onclick="closeMenu()">取消</div>
+</div>
+</div>
+
+<script>
+// ========= IndexedDB =========
+const DB_NAME='TLNotesDB', DB_VER=1;
+let db;
+function openDB(){return new Promise((r,j)=>{let req=indexedDB.open(DB_NAME,DB_VER);req.onupgradeneeded=e=>{let d=e.target.result;
+d.createObjectStore('notes',{keyPath:'id'});d.createObjectStore('timelines',{keyPath:'id'});};req.onsuccess=e=>{db=e.target.result;r()};req.onerror=j})}
+function tx(store,mode){return db.transaction(store,mode).objectStore(store)}
+function getAll(store){return new Promise(r=>{let req=tx(store).getAll();req.onsuccess=()=>r(req.result)})}
+function put(store,obj){return new Promise(r=>{let o=tx(store,'readwrite');o.put(obj);o.transaction.oncomplete=()=>r()})}
+function del(store,id){return new Promise(r=>{let o=tx(store,'readwrite');o.delete(id);o.transaction.oncomplete=()=>r()})}
+
+// ========= State =========
+let timelines=[], notes=[], currentTimeline=null, currentPage=0, activeNoteId=null;
+let composeMedia=[], composeTags=[], editingNoteId=null;
+let mediaFiles=[]; // temporary blob URLs for compose
+
+// ========= Init =========
+async function init(){
+await openDB();
+timelines=await getAll('timelines');
+notes=await getAll('notes');
+if(timelines.length===0){await seedData();timelines=await getAll('timelines')}
+renderAll();
+setInterval(()=>renderAll(),5000); // periodic refresh
+}
+async function seedData(){
+await put('timelines',{id:genId(),name:'我的时间线',icon:'list.bullet',color:'#007AFF',sortOrder:0,createdAt:new Date().toISOString()});
+await put('timelines',{id:genId(),name:'工作',icon:'briefcase',color:'#FF9500',sortOrder:1,createdAt:new Date().toISOString()});
+await put('timelines',{id:genId(),name:'生活',icon:'heart',color:'#FF3B30',sortOrder:2,createdAt:new Date().toISOString()});
+}
+function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,10)}
+
+// ========= Tab Nav =========
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));t.classList.add('active');
+document.querySelectorAll('.page').forEach(p=>p.classList.remove('visible'));
+document.getElementById('page-'+t.dataset.page).classList.add('visible');
+if(t.dataset.page==='search')renderSearchPage();
+if(t.dataset.page==='settings')renderSettingsPage();
+document.getElementById('fab').style.display=t.dataset.page==='timeline'?'flex':'none'});
+
+// ========= Toast =========
+function toast(msg){let t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000)}
+
+// ========= Render All =========
+async function renderAll(){
+notes=await getAll('notes');timelines=await getAll('timelines');
+renderPicker();renderFeed();renderSearchPage();renderSettingsPage();
+document.getElementById('note-count').textContent='共 '+notes.length+' 条笔记';
+}
+
+function renderPicker(){
+let row=document.getElementById('picker-row');
+row.innerHTML='<button class="chip '+(currentTimeline===null?'on':'off')+'" onclick="selectTimeline(null)">全部</button>';
+for(let t of timelines.sort((a,b)=>a.sortOrder-b.sortOrder)){
+row.innerHTML+=`<button class="chip ${currentTimeline===t.id?'on':'off'}" onclick="selectTimeline('${t.id}')">${esc(t.name)}</button>`;}
+row.innerHTML+='<button class="chip add" onclick="showTimelineModal()">+</button>';
+}
+
+function selectTimeline(id){currentTimeline=id;currentPage=0;renderAll()}
+
+function renderFeed(){
+let ns=notes.filter(n=>!currentTimeline||n.timelineId===currentTimeline).sort((a,b)=>{
+if(a.pinned!==b.pinned)return a.pinned?-1:1;return b.createdAt.localeCompare(a.createdAt)});
+let feed=document.getElementById('feed');
+if(ns.length===0){feed.innerHTML=`<div class="empty"><div class="empty-icon">&#128221;</div><div class="empty-title">暂无笔记</div><div class="empty-sub">点击右下角按钮发布第一条笔记</div></div>`;return}
+feed.innerHTML=ns.map(n=>cardHTML(n)).join('');
+// Attach long-press for menu
+feed.querySelectorAll('.card').forEach(el=>{el.addEventListener('contextmenu',e=>{e.preventDefault();showMenu(el.dataset.id)})});
+}
+
+function cardHTML(n){
+let tl=timelines.find(t=>t.id===n.timelineId);
+let mediaHTML='',mcount=(n.media||[]).length;
+if(mcount>0){let cols=mcount===1?'cols1':mcount===2?'cols2':'cols3';mediaHTML='<div class="card-media '+cols+'">'+(n.media||[]).map((m,i)=>m.type==='video'?`<div class="vid-thumb" onclick="event.stopPropagation();openFS(${i},'${n.id}')"><video src="${m.url}" preload="metadata"></video><svg viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg></div>`:`<img src="${m.url}" onclick="event.stopPropagation();openFS(${i},'${n.id}')" loading="lazy">`).join('')+'</div>'}
+let tagsHTML='';if(n.tags&&n.tags.length>0)tagsHTML='<div class="card-tags">'+n.tags.map(t=>`<span class="card-tag">#${esc(t)}</span>`).join('')+'</div>';
+let bodyHTML=renderContent(n.content);
+let pin=n.pinned?' &#128204;':'',edit=n.editedAt?' <span style="color:var(--sub);font-size:11px">(已编辑)</span>':'';
+return `<div class="card" data-id="${esc(n.id)}" onclick="openDetail('${n.id}')">
+<div class="card-header"><span>${pin}${edit}</span><span class="card-time">${fmtDate(n.createdAt)}</span></div>
+<div class="card-body">${bodyHTML}</div>${mediaHTML}${tagsHTML}</div>`;
+}
+
+function renderContent(text){return text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/#([\p{L}\p{N}_-]+)/gu,'<span class="htag" onclick="event.stopPropagation();searchTag(\'$1\')">#$1</span>').replace(/\n/g,'<br>')}
+
+// ========= Compose =========
+function openCompose(timelineId=null){
+editingNoteId=null;composeMedia=[];composeTags=[];mediaFiles=[];
+document.getElementById('compose-title').textContent='发布笔记';
+document.getElementById('compose-content').innerHTML='';
+document.getElementById('compose-media-preview').innerHTML='';
+document.getElementById('compose-tags').innerHTML='';
+document.getElementById('compose-timeline').innerHTML='<option value="">无</option>'+timelines.map(t=>`<option value="${t.id}" ${t.id===timelineId?'selected':''}>${esc(t.name)}</option>`).join('');
+document.getElementById('compose-modal').classList.remove('hidden');
+document.getElementById('fab').style.display='none';
+}
+
+function closeCompose(){
+document.getElementById('compose-modal').classList.add('hidden');
+document.getElementById('fab').style.display='flex';
+}
+
+function addTag(){
+let input=document.getElementById('tag-input'),tag=input.value.trim().toLowerCase();
+if(!tag||composeTags.includes(tag))return;
+composeTags.push(tag);input.value='';
+renderComposeTags();
+}
+
+function renderComposeTags(){
+let el=document.getElementById('compose-tags');
+el.innerHTML=composeTags.map(t=>`<span class="card-tag" style="cursor:pointer" onclick="composeTags=composeTags.filter(x=>x!=='${t}');renderComposeTags()">#${esc(t)} &#10005;</span>`).join(' ');
+}
+
+async function handleMediaSelect(e){
+for(let file of e.target.files){
+let url=URL.createObjectURL(file);
+let type=file.type.startsWith('video/')?'video':'image';
+composeMedia.push({url,type,file});
+}
+renderComposeMedia();
+e.target.value='';
+}
+
+function renderComposeMedia(){
+let el=document.getElementById('compose-media-preview');
+el.innerHTML=composeMedia.map((m,i)=>`<div class="media-preview-item">${m.type==='video'?'<video src="'+m.url+'" muted></video>':'<img src="'+m.url+'">'}<button class="del" onclick="composeMedia.splice(${i},1);renderComposeMedia()">&#10005;</button></div>`).join('');
+}
+
+async function saveNote(){
+let content=document.getElementById('compose-content').innerText.trim();
+if(!content){toast('请输入内容');return}
+let hashtags=[...content.matchAll(/#([\p{L}\p{N}_-]+)/gu)].map(m=>m[1].toLowerCase());
+let allTags=[...new Set([...composeTags,...hashtags])];
+let tlId=document.getElementById('compose-timeline').value||null;
+
+let mediaArr=[];
+for(let i=0;i<composeMedia.length;i++){
+let m=composeMedia[i];
+if(m.file.size<10*1024*1024){// Only store <10MB as base64
+let reader=new FileReader();
+let dataUrl=await new Promise(r=>{reader.onload=e=>r(e.target.result);reader.readAsDataURL(m.file)});
+mediaArr.push({type:m.type,url:dataUrl,order:i});
+} else {toast('文件太大:'+m.file.name);return;}
+}
+
+if(editingNoteId){
+let n=notes.find(x=>x.id===editingNoteId);
+if(n){n.content=content;n.tags=allTags;n.timelineId=tlId;n.editedAt=new Date().toISOString();n.media=mediaArr;await put('notes',n)}
+} else {
+let note={id:genId(),content,createdAt:new Date().toISOString(),editedAt:null,timelineId:tlId,tags:allTags,media:mediaArr,pinned:false};
+await put('notes',note);
+}
+closeCompose();await renderAll();
+}
+
+// ========= Detail =========
+async function openDetail(noteId){
+let n=notes.find(x=>x.id===noteId);if(!n)return;
+let tl=n.timelineId?timelines.find(t=>t.id===n.timelineId):null;
+let pin=n.pinned?' &#128204;':'',edit=n.editedAt?' <span style="color:var(--sub);font-size:11px">(编辑于 '+fmtDate(n.editedAt)+')</span>':'';
+let mediaHTML='';if(n.media&&n.media.length>0){mediaHTML=n.media.map((m,i)=>`<div style="margin-bottom:8px;cursor:pointer" onclick="openFS(${i},'${n.id}')">${m.type==='video'?'<video src="'+m.url+'" controls style="width:100%;max-height:300px;border-radius:12px"></video>':'<img src="'+m.url+'" style="width:100%;border-radius:12px">'}</div>`).join('')}
+let tagsHTML='';if(n.tags&&n.tags.length>0)tagsHTML='<div class="card-tags">'+n.tags.map(t=>`<span class="card-tag" onclick="searchTag('${t}')">#${esc(t)}</span>`).join('')+'</div>';
+let bodyHTML=renderContent(n.content);
+let html=`<div style="padding:16px;padding-bottom:120px">
+<div class="card-header"><span>${pin}${edit}</span><span class="card-time">${fmtDate(n.createdAt)}</span></div>
+${tl?`<div style="font-size:13px;color:var(--sub);margin-bottom:8px">&#128193; ${esc(tl.name)}</div>`:''}
+<div style="font-size:17px;line-height:1.7;white-space:pre-wrap">${bodyHTML}</div>
+${mediaHTML}${tagsHTML}
+<div style="display:flex;gap:10px;margin-top:16px">
+<button class="modal-btn secondary" style="flex:1" onclick="copyContent('${n.id}')">复制</button>
+<button class="modal-btn primary" style="flex:1" onclick="editNoteById('${n.id}')">编辑</button>
+<button class="modal-btn danger" style="flex:1" onclick="deleteNoteById('${n.id}')">删除</button>
+</div></div>`;
+// Show as a modal-like overlay
+let overlay=document.createElement('div');overlay.className='modal-overlay';overlay.style.zIndex='50';
+overlay.innerHTML=`<div class="modal-sheet" style="max-width:100%;border-radius:0">${html}<button class="modal-btn secondary" onclick="this.closest('.modal-overlay').remove();document.getElementById('fab').style.display='flex'">关闭</button></div>`;
+document.body.appendChild(overlay);
+overlay.querySelector('.modal-sheet').addEventListener('click',e=>e.stopPropagation());
+overlay.addEventListener('click',()=>{overlay.remove();document.getElementById('fab').style.display='flex'});
+document.getElementById('fab').style.display='none';
+}
+
+// ========= Menu =========
+function showMenu(noteId){activeNoteId=noteId;let n=notes.find(x=>x.id===noteId);if(!n)return;
+document.getElementById('menu-pin').textContent=n.pinned?'取消置顶':'置顶';document.getElementById('action-menu').classList.remove('hidden')}
+function closeMenu(){document.getElementById('action-menu').classList.add('hidden');activeNoteId=null}
+async function pinNote(){if(!activeNoteId)return;let n=notes.find(x=>x.id===activeNoteId);if(!n)return;n.pinned=!n.pinned;await put('notes',n);closeMenu();await renderAll()}
+async function editNote(){if(!activeNoteId)return;closeMenu();await editNoteById(activeNoteId)}
+async function deleteNote(){if(!activeNoteId)return;if(!confirm('确定删除？'))return;await del('notes',activeNoteId);closeMenu();await renderAll()}
+function copyContent(noteId){let n=notes.find(x=>x.id===noteId);if(!n)return;navigator.clipboard.writeText(n.content);toast('已复制')}
+async function deleteNoteById(id){if(!confirm('确定删除？'))return;await del('notes',id);await renderAll();document.querySelectorAll('.modal-overlay').forEach(o=>o.remove());document.getElementById('fab').style.display='flex'}
+function editNoteById(id){
+let n=notes.find(x=>x.id===id);if(!n)return;
+editingNoteId=id;composeMedia=(n.media||[]).map(m=>({url:m.url,type:m.type,file:null}));
+composeTags=[...n.tags];mediaFiles=[];
+document.getElementById('compose-title').textContent='编辑笔记';
+document.getElementById('compose-content').innerText=n.content;
+document.getElementById('compose-timeline').innerHTML='<option value="">无</option>'+timelines.map(t=>`<option value="${t.id}" ${t.id===n.timelineId?'selected':''}>${esc(t.name)}</option>`).join('');
+renderComposeTags();renderComposeMedia();
+document.getElementById('compose-modal').classList.remove('hidden');
+document.querySelectorAll('.modal-overlay').forEach(o=>o.remove());
+}
+
+// ========= Timeline Modal =========
+let timelineNewName='';
+function showTimelineModal(){timelineNewName='';let overlay=document.createElement('div');overlay.className='modal-overlay';overlay.style.zIndex='50';
+overlay.innerHTML=`<div class="modal-sheet"><div class="modal-title">新建时间线</div><input class="modal-input" id="tl-new-name" placeholder="时间线名称" autofocus><button class="modal-btn primary" id="tl-create-btn">创建</button><button class="modal-btn secondary" onclick="this.closest('.modal-overlay').remove()">取消</button></div>`;
+document.body.appendChild(overlay);
+overlay.querySelector('.modal-sheet').addEventListener('click',e=>e.stopPropagation());
+overlay.addEventListener('click',()=>overlay.remove());
+overlay.querySelector('#tl-create-btn').onclick=async()=>{let name=overlay.querySelector('#tl-new-name').value.trim();if(!name)return;let t={id:genId(),name,icon:'list.bullet',color:'#007AFF',sortOrder:timelines.length,createdAt:new Date().toISOString()};await put('timelines',t);overlay.remove();await renderAll();toast('时间线已创建')}}
+
+// ========= Settings =========
+function renderSettingsPage(){
+let el=document.getElementById('timeline-list');
+el.innerHTML=timelines.sort((a,b)=>a.sortOrder-b.sortOrder).map(t=>`<div class="set-item"><span>&#128193; ${esc(t.name)}</span><span class="set-value">${t.sortOrder}</span></div>`).join('');
+el.innerHTML+='<div class="set-item" onclick="showTimelineModal()" style="color:var(--accent)">+ 新建时间线</div>';
+}
+
+async function exportData(){
+let data={exportedAt:new Date().toISOString(),timelines,notes};
+let blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+let url=URL.createObjectURL(blob);
+let a=document.createElement('a');a.href=url;a.download='timeline_export.json';a.click();
+URL.revokeObjectURL(url);toast('已导出')}
+
+// ========= Search =========
+function renderSearchPage(){
+let cloud=document.getElementById('search-tags');
+let allTags=new Set();notes.forEach(n=>(n.tags||[]).forEach(t=>allTags.add(t)));
+cloud.innerHTML=[...allTags].map(t=>`<span class="chip off" onclick="searchTag('${t}')">#${esc(t)}</span>`).join('');
+}
+
+function doSearch(){
+let q=document.getElementById('search-input').value.trim().toLowerCase();
+let results=notes.filter(n=>!q||n.content.toLowerCase().includes(q)||(n.tags||[]).some(t=>t.includes(q)));
+results.sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+let el=document.getElementById('search-results');
+if(results.length===0){el.innerHTML='<div class="empty"><div class="empty-icon">&#128270;</div><div class="empty-title">无结果</div></div>';return}
+el.innerHTML=results.map(n=>cardHTML(n)).join('');
+el.querySelectorAll('.card').forEach(c=>c.onclick=()=>openDetail(c.dataset.id));
+}
+
+function searchTag(tag){
+document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+document.querySelector('.tab[data-page="search"]').classList.add('active');
+document.querySelectorAll('.page').forEach(p=>p.classList.remove('visible'));
+document.getElementById('page-search').classList.add('visible');
+document.getElementById('search-input').value=tag;
+doSearch();
+}
+
+// ========= Fullscreen =========
+function openFS(index,noteId){
+let n=notes.find(x=>x.id===noteId);if(!n)return;
+let m=n.media[index];if(!m)return;
+let overlay=document.getElementById('fs-overlay'),content=document.getElementById('fs-content');
+if(m.type==='video'){content.innerHTML=`<video src="${m.url}" controls autoplay style="width:100%;max-height:90vh"></video>`}
+else{content.innerHTML=`<img src="${m.url}" style="max-width:90vw;max-height:90vh;object-fit:contain">`}
+overlay.classList.remove('hidden');
+}
+
+function closeFS(){document.getElementById('fs-overlay').classList.add('hidden')}
+async function saveMedia(){let img=document.querySelector('#fs-content img');if(!img)return;try{let blob=await fetch(img.src).then(r=>r.blob());let url=URL.createObjectURL(blob);let a=document.createElement('a');a.href=url;a.download='image.jpg';a.click();URL.revokeObjectURL(url);toast('已保存')}catch(e){toast('保存失败')}}
+
+// ========= Helpers =========
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function fmtDate(d){if(!d)return'';let date=new Date(d),now=new Date(),diff=now-date;
+if(diff<60000)return'刚刚';if(diff<3600000)return Math.floor(diff/60000)+'分钟前';
+if(diff<86400000)return Math.floor(diff/3600000)+'小时前';
+if(diff<172800000)return'昨天';
+return date.getFullYear()+'/'+(date.getMonth()+1)+'/'+date.getDate()+' '+String(date.getHours()).padStart(2,'0')+':'+String(date.getMinutes()).padStart(2,'0')}
+
+// ========= Keyboard =========
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeCompose();closeMenu();closeFS();document.querySelectorAll('.modal-overlay').forEach(o=>o.remove());document.getElementById('fab').style.display='flex'}});
+
+// ========= Start =========
+init().then(()=>console.log('TimelineNotes PWA ready'));
+</script>
+
+<!-- Service Worker Registration -->
+<script>
+if('serviceWorker'in navigator){
+navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
